@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import re
 import string
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
@@ -18,14 +18,10 @@ def clean_text(text):
     return text
 
 def remove_stopwords(text , lang):
-
-        stop_words = set(stopwords.words('arabic'))
-        tokens = word_tokenize(text)
-        filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
-
-        return ' '.join(filtered_tokens)
-
-
+    stop_words = set(stopwords.words('arabic'))
+    tokens = word_tokenize(text)
+    filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
+    return ' '.join(filtered_tokens)
 
 def stem_text(text):
     stemmer = ISRIStemmer()
@@ -33,12 +29,48 @@ def stem_text(text):
     stemmed_tokens = [stemmer.stem(word) for word in tokens]
     return ' '.join(stemmed_tokens)
 
-# TF-IDF Vectorizer
-def tfidf_vectorizer(corpus):
+# Indexing Methods
+def create_term_document_matrix(corpus):
+    vectorizer = CountVectorizer()
+    X = vectorizer.fit_transform(corpus)
+    return X, vectorizer
+
+def create_inverted_index(corpus):
+    inverted_index = {}
+    for idx, doc in enumerate(corpus):
+        tokens = word_tokenize(doc)
+        for token in tokens:
+            if token not in inverted_index:
+                inverted_index[token] = []
+            inverted_index[token].append(idx)
+    return inverted_index
+
+def create_tfidf_matrix(corpus):
     vectorizer = TfidfVectorizer()
     X = vectorizer.fit_transform(corpus)
     return X, vectorizer
 
+# Retrieval Methods
+def retrieve_cosine_similarity(query, index, vectorizer, corpus):
+    query = clean_text(query)
+    query_vec = vectorizer.transform([query])
+    cosine_similarities = cosine_similarity(query_vec, index).flatten()
+    sorted_indices = cosine_similarities.argsort()[::-1]
+    results = []
+    for idx in sorted_indices:
+        if cosine_similarities[idx] > 0:
+            results.append(corpus[idx])
+    return results
+
+def retrieve_using_inverted_index(query, index, corpus):
+    query = clean_text(query)
+    tokens = word_tokenize(query)
+    relevant_docs = set()
+    for token in tokens:
+        if token in index:
+            relevant_docs.update(index[token])
+    results = [corpus[idx] for idx in relevant_docs]
+    return results
 
 # Language detection
 def detect_language(text):
@@ -48,20 +80,11 @@ def detect_language(text):
         lang = None
     return lang
 
-# Search function
-def search(query, vectorizer, corpus, sentences):
-    query = clean_text(query)
-    query_vec = vectorizer.transform([query])
-    cosine_similarities = cosine_similarity(query_vec, corpus).flatten()
-    sorted_indices = cosine_similarities.argsort()[::-1]
-    results = []
-    for idx in sorted_indices:
-        if cosine_similarities[idx] > 0:
-            for sentence in sentences[idx]:
-                if any(word in sentence for word in query.split()):
-                    results.append(sentence)
-                    break  # Stop searching for this document after finding a relevant sentence
-    return results
+def highlight_query_in_results(query, result):
+    # Case insensitive search and highlight with word boundaries
+    query_regex = re.compile(r'\b' + re.escape(query) + r'\b', re.IGNORECASE)
+    highlighted_result = query_regex.sub(lambda x: f"<span style='background-color: yellow; font-weight: bold;'>{x.group()}</span>", result)
+    return highlighted_result
 
 # Streamlit app
 def main():
@@ -111,19 +134,36 @@ def main():
             st.subheader("After Removing Stopwords:")
             st.write(df.head())
 
-        # TF-IDF Vectorization
-        X, vectorizer = tfidf_vectorizer(df['text'])
+        # Indexing method selection
+        indexing_method = st.sidebar.selectbox("Select Indexing Method", ["Term Document Matrix", "Inverted Index", "Tf-idf Vectorization"])
 
+        # Indexing
+        if indexing_method == "Term Document Matrix":
+            index, vectorizer = create_term_document_matrix(df['text'])
+        elif indexing_method == "Inverted Index":
+            index = create_inverted_index(df['text'])
+        elif indexing_method == "Tf-idf Vectorization":
+            index, vectorizer = create_tfidf_matrix(df['text'])
+        
         # Search
         st.header("Search")
         query = st.text_input("Enter your search query")
+        retrieval_method = st.sidebar.selectbox("Select Retrieval Method", ["Cosine Similarity", "Using Inverted Index"])
+
+        num_results = st.slider("Select the number of related documents to return", min_value=1, max_value=10, value=5)
+
         if st.button("Search"):
             if query:
-                results = search(query, vectorizer, X, sentences)
+                if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
+                    results = retrieve_cosine_similarity(query, index, vectorizer, df['text'])
+                elif indexing_method == "Inverted Index":
+                    results = retrieve_using_inverted_index(query, index, df['text'])
                 st.write("Search Results:")
                 if results:
-                    for result in results:
-                        st.write(result)
+                    num_results = min(len(results), num_results)
+                    for i in range(num_results):
+                        highlighted_result = highlight_query_in_results(query, results[i])
+                        st.write(f"- {highlighted_result}", unsafe_allow_html=True)  # Allow HTML rendering
                 else:
                     st.write("No matching sentences found.")
 
