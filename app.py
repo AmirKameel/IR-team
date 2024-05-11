@@ -119,7 +119,7 @@ def highlight_query_in_results(query, result):
     try:
         # Case insensitive search and highlight with word boundaries
         query_regex = re.compile(r'\b' + re.escape(query) + r'\b', re.IGNORECASE)
-        highlighted_result = query_regex.sub(lambda x: f"<span style='background-color: yellow; font-weight: bold;'>{x.group()}</span>", result)
+        highlighted_result = query_regex.sub(lambda x: f"<span style='background-color: red; font-weight: bold;'>{x.group()}</span>", result)
         return highlighted_result
     except Exception as e:
         return result 
