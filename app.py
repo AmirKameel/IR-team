@@ -152,7 +152,7 @@ def main():
             st.subheader("After Cleaning Text:")
             st.write(df.head())
         if st.sidebar.checkbox("Remove Stopwords"):
-            df['text'] = df.apply(lambda row: remove_stopwords(row['text'], lang), axis=1)
+            df['text'] = df['text'].apply(remove_stopwords)
             st.subheader("After Removing Stopwords:")
             st.write(df.head())
 
