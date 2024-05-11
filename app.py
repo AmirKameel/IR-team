@@ -182,9 +182,9 @@ def main():
             if st.button("Search"):
                 if query:
                     if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
-                        results = retrieve_cosine_similarity(query, index,df['text'])
+                        results = retrieve_cosine_similarity(query, index,df['text'],lang)
                     elif indexing_method == "Inverted Index":
-                        results = retrieve_using_inverted_index(query, index, df['text'])
+                        results = retrieve_using_inverted_index(query, index, df['text'],lang)
                         
                     st.write("Search Results:")
 
