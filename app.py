@@ -11,6 +11,7 @@ from nltk.stem import ISRIStemmer
 from langdetect import detect
 from collections import Counter
 import math
+import nltk
 nltk.download('stopwords')
 
 # Arabic preprocessing functions
