@@ -19,7 +19,7 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespaces
     return text
 
-def remove_stopwords(text , lang):
+def remove_stopwords(text):
     stop_words = set(stopwords.words('arabic'))
     tokens = word_tokenize(text)
     filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
