@@ -23,7 +23,8 @@ def clean_text(text, lang):
     elif lang.lower() == 'english':
         text = re.sub(r'[^\w\s]', '', text)  # Remove non-alphanumeric characters
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespaces
-    return text
+    return text
+
 
 def remove_stopwords(text , lang):
     stop_words = set(stopwords.words('arabic'))
