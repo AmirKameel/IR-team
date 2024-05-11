@@ -79,7 +79,7 @@ def text_to_vector(text):
 
 
 def retrieve_cosine_similarity(query, index, corpus):
-    query = clean_text(query)
+    query = clean_text(query,lang=lang)
     query_vec = text_to_vector(query)
     cosine_similarities = [(get_cosine(query_vec, text_to_vector(doc)), i) for i, doc in enumerate(corpus)]
     cosine_similarities.sort(reverse=True)  # Sort by cosine similarity score
@@ -88,7 +88,7 @@ def retrieve_cosine_similarity(query, index, corpus):
 
 
 def retrieve_using_inverted_index(query, index, corpus):
-    query = clean_text(query)
+    query = clean_text(query,lang=lang)
     tokens = word_tokenize(query)
     relevant_docs = set()
     for token in tokens:
