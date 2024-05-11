@@ -143,8 +143,7 @@ def main():
                 st.error("The detected language in the uploaded data is not English. Please upload English text.")
                 return
 
-        # Split text into sentences
-        sentences = [sent_tokenize(text) for text in df['text']]
+       
 
         # Data preprocessing
         st.sidebar.header("Data Preprocessing")
