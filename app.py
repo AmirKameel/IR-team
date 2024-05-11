@@ -197,5 +197,5 @@ def main(lang):
                     st.write("No matching sentences found.")
 
 if __name__ == "__main__":
-    lang = "English"  # Set default language
+    lang = "Arabic"  # Set default language
     main(lang)
