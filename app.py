@@ -13,6 +13,7 @@ from collections import Counter
 import math
 import nltk
 nltk.download('stopwords')
+nltk.download('punkt')
 
 # Arabic preprocessing functions
 def clean_text(text):
