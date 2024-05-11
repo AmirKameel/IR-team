@@ -19,7 +19,7 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespaces
     return text
 
-def remove_stopwords(text):
+def remove_stopwords(text , lang):
     stop_words = set(stopwords.words('arabic'))
     tokens = word_tokenize(text)
     filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
@@ -143,8 +143,7 @@ def main():
                 st.error("The detected language in the uploaded data is not English. Please upload English text.")
                 return
 
-       
-
+        
         # Data preprocessing
         st.sidebar.header("Data Preprocessing")
         if st.sidebar.checkbox("Clean Text"):
@@ -152,7 +151,7 @@ def main():
             st.subheader("After Cleaning Text:")
             st.write(df.head())
         if st.sidebar.checkbox("Remove Stopwords"):
-            df['text'] = df['text'].apply(remove_stopwords)
+            df['text'] = df.apply(lambda row: remove_stopwords(row['text'], lang), axis=1)
             st.subheader("After Removing Stopwords:")
             st.write(df.head())
 
