@@ -202,5 +202,5 @@ def main():
                 else:
                     st.write("No matching sentences found.")
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
