@@ -9,6 +9,8 @@ from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.stem import ISRIStemmer
 from langdetect import detect
+from collections import Counter
+import math
 
 # Arabic preprocessing functions
 def clean_text(text):
@@ -50,17 +52,33 @@ def create_tfidf_matrix(corpus):
     X = vectorizer.fit_transform(corpus)
     return X, vectorizer
 
-# Retrieval Methods
-def retrieve_cosine_similarity(query, index, vectorizer, corpus):
+# Cosine similarity calculation
+def get_cosine(vec1, vec2):
+    intersection = set(vec1.keys()) & set(vec2.keys())
+    numerator = sum([vec1[x] * vec2[x] for x in intersection])
+
+    sum1 = sum([vec1[x] ** 2 for x in list(vec1.keys())])
+    sum2 = sum([vec2[x] ** 2 for x in list(vec2.keys())])
+    denominator = math.sqrt(sum1) * math.sqrt(sum2)
+
+    if not denominator:
+        return 0.0
+    else:
+        return float(numerator) / denominator
+
+def text_to_vector(text):
+    words = text.split()
+    return Counter(words)
+
+
+def retrieve_cosine_similarity(query, index, corpus):
     query = clean_text(query)
-    query_vec = vectorizer.transform([query])
-    cosine_similarities = cosine_similarity(query_vec, index).flatten()
-    sorted_indices = cosine_similarities.argsort()[::-1]
-    results = []
-    for idx in sorted_indices:
-        if cosine_similarities[idx] > 0:
-            results.append(corpus[idx])
+    query_vec = text_to_vector(query)
+    cosine_similarities = [(get_cosine(query_vec, text_to_vector(doc)), i) for i, doc in enumerate(corpus)]
+    cosine_similarities.sort(reverse=True)  # Sort by cosine similarity score
+    results = [(cosine_score, corpus[idx]) for cosine_score, idx in cosine_similarities]
     return results
+
 
 def retrieve_using_inverted_index(query, index, corpus):
     query = clean_text(query)
@@ -69,8 +87,9 @@ def retrieve_using_inverted_index(query, index, corpus):
     for token in tokens:
         if token in index:
             relevant_docs.update(index[token])
-    results = [corpus[idx] for idx in relevant_docs]
+    results = [(idx, corpus[idx]) for idx in relevant_docs]  # Modify to include document ID
     return results
+
 
 # Language detection
 def detect_language(text):
@@ -80,12 +99,16 @@ def detect_language(text):
         lang = None
     return lang
 
-def highlight_query_in_results(query, result):
-    # Case insensitive search and highlight with word boundaries
-    query_regex = re.compile(r'\b' + re.escape(query) + r'\b', re.IGNORECASE)
-    highlighted_result = query_regex.sub(lambda x: f"<span style='background-color: yellow; font-weight: bold;'>{x.group()}</span>", result)
-    return highlighted_result
+import re
 
+def highlight_query_in_results(query, result):
+    try:
+        # Case insensitive search and highlight with word boundaries
+        query_regex = re.compile(r'\b' + re.escape(query) + r'\b', re.IGNORECASE)
+        highlighted_result = query_regex.sub(lambda x: f"<span style='background-color: yellow; font-weight: bold;'>{x.group()}</span>", result)
+        return highlighted_result
+    except Exception as e:
+        return result 
 # Streamlit app
 def main():
     st.title("Multilingual Text Search Engine")
@@ -155,17 +178,22 @@ def main():
         if st.button("Search"):
             if query:
                 if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
-                    results = retrieve_cosine_similarity(query, index, vectorizer, df['text'])
+                    results = retrieve_cosine_similarity(query, index,df['text'])
                 elif indexing_method == "Inverted Index":
                     results = retrieve_using_inverted_index(query, index, df['text'])
+                    
                 st.write("Search Results:")
+
                 if results:
                     num_results = min(len(results), num_results)
-                    for i in range(num_results):
-                        highlighted_result = highlight_query_in_results(query, results[i])
-                        st.write(f"- {highlighted_result}", unsafe_allow_html=True)  # Allow HTML rendering
+                    for i in range(num_results):        
+                        doc_id, text = results[i]  # Extract document ID and text
+
+                        highlighted_result = highlight_query_in_results(query, text)
+                        st.write(f"- Document ID for (IVX) and score for (Cosine): {doc_id}, {highlighted_result}", unsafe_allow_html=True)  # Allow HTML rendering
                 else:
                     st.write("No matching sentences found.")
 
 if __name__ == "__main__":
     main()
+
