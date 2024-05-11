@@ -159,42 +159,46 @@ def main():
             st.subheader("After Removing Stopwords:")
             st.write(df.head())
 
-        # Indexing method selection
-        indexing_method = st.sidebar.selectbox("Select Indexing Method", ["Term Document Matrix", "Inverted Index", "Tf-idf Vectorization"])
+        # Check if there are any non-empty documents after preprocessing
+        if df['text'].str.strip().astype(bool).any():
+            # Indexing method selection
+            indexing_method = st.sidebar.selectbox("Select Indexing Method", ["Term Document Matrix", "Inverted Index", "Tf-idf Vectorization"])
 
-        # Indexing
-        if indexing_method == "Term Document Matrix":
-            index, vectorizer = create_term_document_matrix(df['text'])
-        elif indexing_method == "Inverted Index":
-            index = create_inverted_index(df['text'])
-        elif indexing_method == "Tf-idf Vectorization":
-            index, vectorizer = create_tfidf_matrix(df['text'])
-        
-        # Search
-        st.header("Search")
-        query = st.text_input("Enter your search query")
-        retrieval_method = st.sidebar.selectbox("Select Retrieval Method", ["Cosine Similarity", "Using Inverted Index"])
+            # Indexing
+            if indexing_method == "Term Document Matrix":
+                index, vectorizer = create_term_document_matrix(df['text'])
+            elif indexing_method == "Inverted Index":
+                index = create_inverted_index(df['text'])
+            elif indexing_method == "Tf-idf Vectorization":
+                index, vectorizer = create_tfidf_matrix(df['text'])
+            
+            # Search
+            st.header("Search")
+            query = st.text_input("Enter your search query")
+            retrieval_method = st.sidebar.selectbox("Select Retrieval Method", ["Cosine Similarity", "Using Inverted Index"])
 
-        num_results = st.slider("Select the number of related documents to return", min_value=1, max_value=10, value=5)
+            num_results = st.slider("Select the number of related documents to return", min_value=1, max_value=10, value=5)
 
-        if st.button("Search"):
-            if query:
-                if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
-                    results = retrieve_cosine_similarity(query, index,df['text'])
-                elif indexing_method == "Inverted Index":
-                    results = retrieve_using_inverted_index(query, index, df['text'])
-                    
-                st.write("Search Results:")
+            if st.button("Search"):
+                if query:
+                    if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
+                        results = retrieve_cosine_similarity(query, index,df['text'])
+                    elif indexing_method == "Inverted Index":
+                        results = retrieve_using_inverted_index(query, index, df['text'])
+                        
+                    st.write("Search Results:")
 
-                if results:
-                    num_results = min(len(results), num_results)
-                    for i in range(num_results):        
-                        doc_id, text = results[i]  # Extract document ID and text
+                    if results:
+                        num_results = min(len(results), num_results)
+                        for i in range(num_results):        
+                            doc_id, text = results[i]  # Extract document ID and text
 
-                        highlighted_result = highlight_query_in_results(query, text)
-                        st.write(f"- Document ID for (IVX) and score for (Cosine): {doc_id}, {highlighted_result}", unsafe_allow_html=True)  # Allow HTML rendering
-                else:
-                    st.write("No matching sentences found.")
+                            highlighted_result = highlight_query_in_results(query, text)
+                            st.write(f"- Document ID for (IVX) and score for (Cosine): {doc_id}, {highlighted_result}", unsafe_allow_html=True)  # Allow HTML rendering
+                    else:
+                        st.write("No matching sentences found.")
+        else:
+            st.error("All documents are empty after preprocessing. Please adjust preprocessing steps or upload a different dataset.")
 
 if __name__ == "__main__":
     main()
