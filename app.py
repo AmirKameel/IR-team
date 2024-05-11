@@ -27,13 +27,19 @@ def clean_text(text, lang):
 
 
 def remove_stopwords(text , lang):
-    stop_words = set(stopwords.words('arabic'))
+    if lang.lower() == 'arabic':
+        stop_words = set(stopwords.words('arabic'))
+    elif lang.lower() == 'english':
+        stop_words = set(stopwords.words('english'))
     tokens = word_tokenize(text)
     filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
     return ' '.join(filtered_tokens)
 
-def stem_text(text):
-    stemmer = ISRIStemmer()
+def stem_text(text, lang):
+    if lang.lower() == 'arabic':
+        stemmer = ISRIStemmer()
+    elif lang.lower() == 'english':
+        stemmer = nltk.PorterStemmer()
     tokens = word_tokenize(text)
     stemmed_tokens = [stemmer.stem(word) for word in tokens]
     return ' '.join(stemmed_tokens)
@@ -116,8 +122,9 @@ def highlight_query_in_results(query, result):
         return highlighted_result
     except Exception as e:
         return result 
+
 # Streamlit app
-def main(lang):
+def main():
     st.title("Multilingual Text Search Engine")
 
     # Upload dataset
@@ -135,19 +142,10 @@ def main(lang):
         st.header("Uploaded Data")
         st.write(df.head())
 
-        # Check language compatibility
-        if lang.lower() == 'arabic':
-            detected_lang = df['text'].apply(detect_language).mode().iloc[0]
-            if detected_lang != 'ar':
-                st.error("The detected language in the uploaded data is not Arabic. Please upload Arabic text.")
-                return
-        elif lang.lower() == 'english':
-            detected_lang = df['text'].apply(detect_language).mode().iloc[0]
-            if detected_lang != 'en':
-                st.error("The detected language in the uploaded data is not English. Please upload English text.")
-                return
+        # Language detection
+        detected_lang = df['text'].apply(detect_language).mode().iloc[0]
+        lang = st.sidebar.selectbox("Select Language", ["Arabic", "English"], index=["Arabic", "English"].index(detected_lang))
 
-        
         # Data preprocessing
         st.sidebar.header("Data Preprocessing")
         if st.sidebar.checkbox("Clean Text"):
@@ -197,5 +195,4 @@ def main(lang):
                     st.write("No matching sentences found.")
 
 if __name__ == "__main__":
-    lang = "Arabic"  # Set default language
-    main(lang)
+    main()
