@@ -77,6 +77,10 @@ def text_to_vector(text):
     words = text.split()
     return Counter(words)
 
+
+
+
+
 # Language detection
 def detect_language(text):
     try:
@@ -85,16 +89,17 @@ def detect_language(text):
         lang = None
     return lang
 
-def retrieve_cosine_similarity(query, index, corpus, lang):
-    query = clean_text(query, lang=lang)
+def retrieve_cosine_similarity(query, index, corpus):
+    query = clean_text(query,lang=lang)
     query_vec = text_to_vector(query)
     cosine_similarities = [(get_cosine(query_vec, text_to_vector(doc)), i) for i, doc in enumerate(corpus)]
     cosine_similarities.sort(reverse=True)  # Sort by cosine similarity score
-    results = [(cosine_score, i, corpus[idx]) for cosine_score, idx in cosine_similarities]
+    results = [(cosine_score, corpus[idx]) for cosine_score, idx in cosine_similarities]
     return results
 
-def retrieve_using_inverted_index(query, index, corpus, lang):
-    query = clean_text(query, lang=lang)
+
+def retrieve_using_inverted_index(query, index, corpus):
+    query = clean_text(query,lang=lang)
     tokens = word_tokenize(query)
     relevant_docs = set()
     for token in tokens:
@@ -114,7 +119,6 @@ def highlight_query_in_results(query, result):
         return highlighted_result
     except Exception as e:
         return result 
-
 # Streamlit app
 def main():
     st.title("Multilingual Text Search Engine")
@@ -138,10 +142,16 @@ def main():
         lang = st.sidebar.selectbox("Select Language", ["Arabic", "English"])
 
         # Check language compatibility
-        detected_lang = df['text'].apply(detect_language).mode().iloc[0]
-        if detected_lang != lang[:2]:
-            st.error(f"The detected language in the uploaded data is not {lang}. Please upload {lang} text.")
-            return
+        if lang.lower() == 'arabic':
+            detected_lang = df['text'].apply(detect_language).mode().iloc[0]
+            if detected_lang != 'ar':
+                st.error("The detected language in the uploaded data is not Arabic. Please upload Arabic text.")
+                return
+        elif lang.lower() == 'english':
+            detected_lang = df['text'].apply(detect_language).mode().iloc[0]
+            if detected_lang != 'en':
+                st.error("The detected language in the uploaded data is not English. Please upload English text.")
+                return
 
         
         # Data preprocessing
@@ -176,23 +186,21 @@ def main():
         if st.button("Search"):
             if query:
                 if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
-                    results = retrieve_cosine_similarity(query, index, df['text'], lang)
+                    results = retrieve_cosine_similarity(query, index,df['text'])
                 elif indexing_method == "Inverted Index":
-                    results = retrieve_using_inverted_index(query, index, df['text'], lang)
+                    results = retrieve_using_inverted_index(query, index, df['text'])
                     
                 st.write("Search Results:")
 
                 if results:
                     num_results = min(len(results), num_results)
                     for i in range(num_results):        
-                        if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
-                            cosine_score, idx, text = results[i]  # Extract cosine score, document ID, and text
-                            st.write(f"- Document ID for (TDM/TF-IDF) and score for (Cosine): {idx}, {cosine_score} - {highlight_query_in_results(query, text)}", unsafe_allow_html=True)  # Allow HTML rendering
-                        elif indexing_method == "Inverted Index":
-                            idx, text = results[i]  # Extract document ID and text
-                            st.write(f"- Document ID for (IVX) and score for (Cosine): {idx}, {highlight_query_in_results(query, text)}", unsafe_allow_html=True)  # Allow HTML rendering
+                        doc_id, text = results[i]  # Extract document ID and text
+
+                        highlighted_result = highlight_query_in_results(query, text)
+                        st.write(f"- Document ID for (IVX) and score for (Cosine): {doc_id}, {highlighted_result}", unsafe_allow_html=True)  # Allow HTML rendering
                 else:
                     st.write("No matching sentences found.")
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     main()
