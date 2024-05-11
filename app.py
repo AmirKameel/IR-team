@@ -6,7 +6,7 @@ import string
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from nltk.corpus import stopwords
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
 from nltk.stem import ISRIStemmer
 from langdetect import detect
 from collections import Counter
@@ -78,9 +78,6 @@ def text_to_vector(text):
     return Counter(words)
 
 
-
-
-
 # Language detection
 def detect_language(text):
     try:
@@ -90,7 +87,7 @@ def detect_language(text):
     return lang
 
 def retrieve_cosine_similarity(query, index, corpus):
-    query = clean_text(query,lang=lang)
+    query = clean_text(query, lang)
     query_vec = text_to_vector(query)
     cosine_similarities = [(get_cosine(query_vec, text_to_vector(doc)), i) for i, doc in enumerate(corpus)]
     cosine_similarities.sort(reverse=True)  # Sort by cosine similarity score
@@ -99,7 +96,7 @@ def retrieve_cosine_similarity(query, index, corpus):
 
 
 def retrieve_using_inverted_index(query, index, corpus):
-    query = clean_text(query,lang=lang)
+    query = clean_text(query, lang)
     tokens = word_tokenize(query)
     relevant_docs = set()
     for token in tokens:
@@ -120,7 +117,7 @@ def highlight_query_in_results(query, result):
     except Exception as e:
         return result 
 # Streamlit app
-def main():
+def main(lang):
     st.title("Multilingual Text Search Engine")
 
     # Upload dataset
@@ -137,9 +134,6 @@ def main():
         # Display uploaded data
         st.header("Uploaded Data")
         st.write(df.head())
-
-        # Language selection
-        lang = st.sidebar.selectbox("Select Language", ["Arabic", "English"])
 
         # Check language compatibility
         if lang.lower() == 'arabic':
@@ -203,4 +197,5 @@ def main():
                     st.write("No matching sentences found.")
 
 if __name__ == "__main__":
-    main()
+    lang = "English"  # Set default language
+    main(lang)
