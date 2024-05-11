@@ -144,7 +144,9 @@ def main():
 
         # Language detection
         detected_lang = df['text'].apply(detect_language).mode().iloc[0]
-        lang = st.sidebar.selectbox("Select Language", ["Arabic", "English"], index=["Arabic", "English"].index(detected_lang))
+        lang_options = ["Arabic", "English"]
+        lang_index = lang_options.index(detected_lang) if detected_lang in lang_options else 0
+        lang = st.sidebar.selectbox("Select Language", lang_options, index=lang_index)
 
         # Data preprocessing
         st.sidebar.header("Data Preprocessing")
