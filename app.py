@@ -16,11 +16,14 @@ nltk.download('stopwords')
 nltk.download('punkt')
 
 # Arabic preprocessing functions
-def clean_text(text):
-    text = re.sub(r'[^\u0600-\u06FF\s]', '', text)  # Remove non-Arabic characters
-    text = re.sub(r'[\u0610-\u061A\u064B-\u065F\u0670\u0674\u06D6-\u06ED]', '', text)  # Remove Arabic diacritics
+def clean_text(text, lang):
+    if lang.lower() == 'arabic':
+        text = re.sub(r'[^\u0600-\u06FF\s]', '', text)  # Remove non-Arabic characters
+        text = re.sub(r'[\u0610-\u061A\u064B-\u065F\u0670\u0674\u06D6-\u06ED]', '', text)  # Remove Arabic diacritics
+    elif lang.lower() == 'english':
+        text = re.sub(r'[^\w\s]', '', text)  # Remove non-alphanumeric characters
     text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespaces
-    return text
+    return text
 
 def remove_stopwords(text , lang):
     stop_words = set(stopwords.words('arabic'))
@@ -150,7 +153,7 @@ def main():
         # Data preprocessing
         st.sidebar.header("Data Preprocessing")
         if st.sidebar.checkbox("Clean Text"):
-            df['text'] = df['text'].apply(clean_text)
+            df['text'] = df.apply(lambda row: clean_text(row['text'], lang), axis=1)
             st.subheader("After Cleaning Text:")
             st.write(df.head())
         if st.sidebar.checkbox("Remove Stopwords"):
