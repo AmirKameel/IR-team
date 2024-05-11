@@ -78,6 +78,17 @@ def text_to_vector(text):
     return Counter(words)
 
 
+
+
+
+# Language detection
+def detect_language(text):
+    try:
+        lang = detect(text)
+    except:
+        lang = None
+    return lang
+
 def retrieve_cosine_similarity(query, index, corpus):
     query = clean_text(query,lang=lang)
     query_vec = text_to_vector(query)
@@ -97,14 +108,6 @@ def retrieve_using_inverted_index(query, index, corpus):
     results = [(idx, corpus[idx]) for idx in relevant_docs]  # Modify to include document ID
     return results
 
-
-# Language detection
-def detect_language(text):
-    try:
-        lang = detect(text)
-    except:
-        lang = None
-    return lang
 
 import re
 
