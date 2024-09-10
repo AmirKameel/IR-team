@@ -16,7 +16,10 @@ import PyPDF2
 import io
 
 import nltk
-nltk.download()
+from nltk.corpus import stopwords
+ 
+nltk.download('stopwords')
+nltk.download('punkt')
 
 # Arabic preprocessing functions
 def clean_text(text, lang):
