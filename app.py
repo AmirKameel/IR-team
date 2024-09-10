@@ -15,8 +15,8 @@ import nltk
 import PyPDF2
 import io
 
-nltk.download('stopwords')
-
+import nltk
+nltk.download()
 
 # Arabic preprocessing functions
 def clean_text(text, lang):
