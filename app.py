@@ -180,10 +180,7 @@ def main():
             df['text'] = df['text'].apply(lambda x: clean_text(x, lang))
             st.subheader("After Cleaning Text:")
             st.write(df.head())
-        if st.sidebar.checkbox("Remove Stopwords"):
-            df['text'] = df['text'].apply(lambda x: remove_stopwords(x, lang))
-            st.subheader("After Removing Stopwords:")
-            st.write(df.head())
+
 
         # Check if there are any non-empty documents after preprocessing
         if df['text'].str.strip().astype(bool).any():
