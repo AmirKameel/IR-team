@@ -14,12 +14,71 @@ import math
 import nltk
 import PyPDF2
 import io
+import openai
 
-import nltk
-from nltk.corpus import stopwords
- 
-nltk.download('stopwords')
-nltk.download('punkt')
+
+
+
+# Set your OpenAI API key here
+
+
+
+def perform_audit(iosa_checklist, input_text):
+    model_id = 'gpt-4o'  
+    client = openai.OpenAI(api_key=open('API_KEY').read())
+
+    # OpenAI API request
+    response = client.chat.completions.create(
+        model=model_id,
+        messages=[
+            {
+                'role': 'system',
+                'content': (
+                    """
+    Context	Your role is pivotal as you conduct audits to ensure strict compliance with ISARPs. Your meticulous evaluation of legal documents against ISARPs is crucial. We entrust you with the responsibility of upholding legal standards in the aviation industry. During an audit, an operator is assessed against the ISARPs contained in this manual. To determine conformity with any standard or recommended practice, an auditor will gather evidence to assess the degree to which specifications are documented and implemented by the operator. In making such an assessment, the following information is applicable.	You're an aviation professional with a robust 20-year background in both the business and commercial sectors of the industry. Your expertise extends to a deep-rooted understanding of aviation regulations the world over, a strong grasp of safety protocols, and a keen perception of the regulatory differences that come into play internationally.
+    Your experience is underpinned by a solid educational foundation and specialized professional training. This has equipped you with a thorough and detailed insight into the technical and regulatory dimensions of aviation. Your assessments are carried out with attention to detail and a disciplined use of language that reflects a conscientious approach to legal responsibilities.
+    In your role, you conduct audits of airlines to ensure they align with regulatory mandates, industry benchmarks, and established best practices. You approach this task with a critical eye, paying close attention to the language used and its implications. It's your job to make sure that terminology is employed accurately in compliance with legal stipulations.
+    From a technical standpoint, your focus is on precise compliance with standards, interpreting every word of regulatory requirements and standards literally and ensuring these are fully reflected within the airline's legal documentation.
+    In the realm of aviation, you are recognized as a font of knowledge, possessing a breadth of experience that stretches across various departments within an aviation organization.
+    Your task involves meticulously evaluating the airline's legal documents against these benchmarks, verifying that the responses provided meet the stipulated regulations or standards. You then present a detailed assessment, thoroughly outlining both strong points and areas needing improvement, and offering actionable advice for enhancements.
+    Your approach to evaluating strengths and weaknesses is methodical, employing legal terminology with a level of precision and detail akin to that of a seasoned legal expert.
+    Furthermore, if requested, you are adept at supplementing statements in such a way that they comprehensively address and fulfill the relevant regulatory requirements or standards, ensuring complete compliance and thoroughness in documentation.
+    """
+      )
+            },
+            {
+                'role': 'user',
+                'content': (
+                    f"""
+    OBJECTIVES:
+    you are given a doc and a input text do the followings:
+    The provided text is to be evaluated on a compliance scale against the requirements of the regulatory text or international standard, ranging from 0 to 10. A score of 0 indicates the text is entirely non-compliant or irrelevant to the set requirements, while a score of 10 denotes full compliance with the specified criteria.
+    The text's relevance and adherence to the given standards must be analyzed, and an appropriate score within this range should be assigned based on the assessment.
+    Provide a thorough justification for the assigned score. Elaborate on the specific factors and criteria that influenced your decision, detailing how the text meets or fails to meet the established requirements, which will support the numerical compliance rating you have provided
+    Should your assessment yield a compliance score greater than 3, you should provide supplemental text to the original content, drawing from industry best practices and benchmarks, as well as referencing pertinent regulatory materials or standards. The supplementary text should be crafted in a human writing style, incorporating human factors principles to ensure it is clear, readable, and easily understood by crew members. It's important to note that aviation regulations emphasize ease of language and precision in communication.
+    In the case where the provided text is deemed completely irrelevant, you are to utilize your expertise, industry benchmarks, best practices, and relevant regulatory references or standards to formulate a detailed exposition of processes, procedures, organizational structure, duty management, or any other facet within the aviation industry. The goal is to revise the text to achieve full compliance with the applicable legal requirements or standards.
+
+    ISARPs: 
+    {iosa_checklist}
+    INPUT_TEXT: 
+    {input_text}
+
+    Your output must include the following sections:
+    ASSESSMENT: A detailed evaluation of the documentation's alignment with the ISARPs. It should employ technical language and aviation terminology where appropriate.
+    RECOMMENDATIONS: Specific, actionable suggestions aimed at improving compliance with ISARP standards. Maintain a formal and professional tone.
+    OVERALL_COMPLIANCE_SCORE: A numerical rating (0 to 10) reflecting the documentation's overall compliance with the ISARPs.
+    OVERALL_COMPLIANCE_TAG: A scoring tag indicating the overall compliance level with ISARPs.
+    """
+    )
+            }
+        ],
+        max_tokens=4000
+    )
+    
+    return response.choices[0].message.content
+
+
+
 
 # Arabic preprocessing functions
 def clean_text(text, lang):
@@ -146,9 +205,14 @@ def highlight_query_in_results(query, result):
     except Exception as e:
         return result 
 
-# Streamlit app
 def main():
     st.title("MVP Aerosync")
+
+    # Initialize session state
+    if 'search_performed' not in st.session_state:
+        st.session_state.search_performed = False
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
 
     # Upload dataset
     st.sidebar.header("Upload Dataset")
@@ -180,14 +244,14 @@ def main():
             df['text'] = df['text'].apply(lambda x: clean_text(x, lang))
             st.subheader("After Cleaning Text:")
             st.write(df.head())
+        if st.sidebar.checkbox("Remove Stopwords"):
+            df['text'] = df['text'].apply(lambda x: remove_stopwords(x, lang))
+            st.subheader("After Removing Stopwords:")
+            st.write(df.head())
 
-
-        # Check if there are any non-empty documents after preprocessing
         if df['text'].str.strip().astype(bool).any():
-            # Indexing method selection
             indexing_method = st.sidebar.selectbox("Select Indexing Method", ["Tf-idf Vectorization", "Inverted Index", "Term Document Matrix"])
 
-            # Indexing
             if indexing_method == "Tf-idf Vectorization":
                 index, vectorizer = create_tfidf_matrix(df['text'])
             elif indexing_method == "Inverted Index":
@@ -195,7 +259,6 @@ def main():
             elif indexing_method == "Term Document Matrix":
                 index, vectorizer = create_term_document_matrix(df['text'])
             
-            # Search
             st.header("Search")
             query = st.text_input("Enter your search query")
             retrieval_method = st.sidebar.selectbox("Select Retrieval Method", ["Cosine Similarity", "Using Inverted Index"])
@@ -204,24 +267,34 @@ def main():
 
             if st.button("Search"):
                 if query:
-                    if indexing_method == "Term Document Matrix" or indexing_method == "Tf-idf Vectorization":
+                    if indexing_method in ["Term Document Matrix", "Tf-idf Vectorization"]:
                         results = retrieve_cosine_similarity(query, index, df['text'], lang)
                     elif indexing_method == "Inverted Index":
                         results = retrieve_using_inverted_index(query, index, df['text'], lang)
+                    
+                    st.session_state.search_results = results
+                    st.session_state.search_performed = True
+
+            # Display search results and audit buttons
+            if st.session_state.search_performed:
+                st.write("Search Results:")
+                if st.session_state.search_results:
+                    num_results = min(len(st.session_state.search_results), num_results)
+                    for i in range(num_results):        
+                        score, text, chunk_id = st.session_state.search_results[i]
+
+                        highlighted_result = highlight_query_in_results(query, text)
+                        st.write(f"- Chunk ID: {chunk_id}, Score: {score:.4f}")
+                        st.write(highlighted_result, unsafe_allow_html=True)
                         
-                    st.write("Search Results:")
-
-                    if results:
-                        num_results = min(len(results), num_results)
-                        for i in range(num_results):        
-                            score, text, chunk_id = results[i]
-
-                            highlighted_result = highlight_query_in_results(query, text)
-                            st.write(f"- Chunk ID: {chunk_id}, Score: {score:.4f}")
-                            st.write(highlighted_result, unsafe_allow_html=True)
-                            st.write("---")
-                    else:
-                        st.write("No matching chunks found.")
+                        # Add unique key to each button
+                        if st.button(f'Audit Chunk {chunk_id}', key=f"audit_button_{chunk_id}"):
+                            audit_result = perform_audit(highlighted_result, query)
+                            st.subheader(f"Audit Results for Chunk {chunk_id}")
+                            st.write(audit_result)
+                        st.write("---")
+                else:
+                    st.write("No matching chunks found.")
         else:
             st.error("All documents are empty after preprocessing. Please adjust preprocessing steps or upload a different dataset.")
 
