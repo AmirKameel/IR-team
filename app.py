@@ -25,7 +25,7 @@ import openai
 
 def perform_audit(iosa_checklist, input_text):
     model_id = 'gpt-4o'  
-    client = openai.OpenAI(api_key=open('API_KEY').read())
+    client = openai.OpenAI(api_key="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")
 
     # OpenAI API request
     response = client.chat.completions.create(
