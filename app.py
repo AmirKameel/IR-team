@@ -24,7 +24,7 @@ import toml
 
 
 def perform_audit(iosa_checklist, input_text):
-    model_id = 'gpt-4o'  
+    model_id = 'gpt-3.5-turbo-0125'  
     # Load the secrets from the toml file
     secrets = toml.load('secrets.toml')
 
