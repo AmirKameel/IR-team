@@ -25,7 +25,11 @@ import openai
 
 def perform_audit(iosa_checklist, input_text):
     model_id = 'gpt-4o'  
-    client = openai.OpenAI(api_key="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")
+    # Load the secrets from the toml file
+    secrets = toml.load('secrets.toml')
+
+    # Create the OpenAI client using the API key from secrets.toml
+    client = openai.OpenAI(api_key=secrets['openai']['api_key'])
 
     # OpenAI API request
     response = client.chat.completions.create(
