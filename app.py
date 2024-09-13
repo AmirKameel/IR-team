@@ -18,7 +18,8 @@ import openai
 import toml
 
 
-
+import nltk
+nltk.download('punkt_tab')
 # Set your OpenAI API key here
 
 
