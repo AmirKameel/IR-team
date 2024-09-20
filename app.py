@@ -17,12 +17,7 @@ import io
 import openai
 import toml
 
-
-import nltk
-nltk.download('punkt_tab')
 # Set your OpenAI API key here
-
-
 
 def perform_audit(iosa_checklist, input_text):
     model_id = 'gpt-4o'  
@@ -82,90 +77,7 @@ def perform_audit(iosa_checklist, input_text):
     
     return response.choices[0].message.content
 
-
-
-
-# Arabic preprocessing functions
-def clean_text(text, lang):
-    if lang.lower() == 'arabic':
-        text = re.sub(r'[^\u0600-\u06FF\s]', '', text)  # Remove non-Arabic characters
-        text = re.sub(r'[\u0610-\u061A\u064B-\u065F\u0670\u0674\u06D6-\u06ED]', '', text)  # Remove Arabic diacritics
-    elif lang.lower() == 'english':
-        text = re.sub(r'[^\w\s]', '', text)  # Remove non-alphanumeric characters
-    text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespaces
-    return text
-
-def remove_stopwords(text, lang):
-    if lang.lower() == 'arabic':
-        stop_words = set(stopwords.words('arabic'))
-    elif lang.lower() == 'english':
-        stop_words = set(stopwords.words('english'))
-    tokens = word_tokenize(text)
-    filtered_tokens = [word for word in tokens if word.lower() not in stop_words]
-    return ' '.join(filtered_tokens)
-
-def stem_text(text, lang):
-    if lang.lower() == 'arabic':
-        stemmer = ISRIStemmer()
-    elif lang.lower() == 'english':
-        stemmer = nltk.PorterStemmer()
-    tokens = word_tokenize(text)
-    stemmed_tokens = [stemmer.stem(word) for word in tokens]
-    return ' '.join(stemmed_tokens)
-
-# Indexing Methods
-def create_term_document_matrix(corpus):
-    vectorizer = CountVectorizer()
-    X = vectorizer.fit_transform(corpus)
-    return X, vectorizer
-
-def create_inverted_index(corpus):
-    inverted_index = {}
-    for idx, doc in enumerate(corpus):
-        tokens = word_tokenize(doc)
-        for token in tokens:
-            if token not in inverted_index:
-                inverted_index[token] = []
-            inverted_index[token].append(idx)
-    return inverted_index
-
-def create_tfidf_matrix(corpus):
-    vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform(corpus)
-    return X, vectorizer
-
-# Cosine similarity calculation
-def get_cosine(vec1, vec2):
-    intersection = set(vec1.keys()) & set(vec2.keys())
-    numerator = sum([vec1[x] * vec2[x] for x in intersection])
-
-    sum1 = sum([vec1[x] ** 2 for x in list(vec1.keys())])
-    sum2 = sum([vec2[x] ** 2 for x in list(vec2.keys())])
-    denominator = math.sqrt(sum1) * math.sqrt(sum2)
-
-    if not denominator:
-        return 0.0
-    else:
-        return float(numerator) / denominator
-
-def text_to_vector(text):
-    words = text.split()
-    return Counter(words)
-
-# Language detection
-def detect_language(text):
-    try:
-        lang = detect(text)
-        if lang == 'ar':
-            return 'Arabic'
-        elif lang == 'en':
-            return 'English'
-        else:
-            return 'Unknown'
-    except:
-        return 'Unknown'
-
-# Updated PDF reading function
+# Function to read and chunk PDFs
 def read_pdf(file, chunk_size=1000):
     pdf_reader = PyPDF2.PdfReader(file)
     chunks = []
@@ -182,123 +94,81 @@ def read_pdf(file, chunk_size=1000):
         chunks.append(current_chunk.strip())
     return chunks
 
-# Updated retrieve functions to work with chunks
-def retrieve_cosine_similarity(query, index, corpus, lang):
-    query = clean_text(query, lang)
-    query_vec = text_to_vector(query)
-    cosine_similarities = [(get_cosine(query_vec, text_to_vector(doc)), i) for i, doc in enumerate(corpus)]
-    cosine_similarities.sort(reverse=True)
-    results = [(cosine_score, corpus[idx], idx) for cosine_score, idx in cosine_similarities]
-    return results
+# Function to clean text (remove special characters)
+def clean_text(text):
+    text = re.sub(r'[^\w\s]', '', text)
+    return re.sub(r'\s+', ' ', text).strip()
 
-def retrieve_using_inverted_index(query, index, corpus, lang):
-    query = clean_text(query, lang)
-    tokens = word_tokenize(query)
-    relevant_docs = set()
-    for token in tokens:
-        if token in index:
-            relevant_docs.update(index[token])
-    results = [(1.0, corpus[idx], idx) for idx in relevant_docs]  # Using 1.0 as a placeholder score
-    return results
+# Function to calculate cosine similarity
+def calculate_similarity(chunk1, chunk2):
+    vectorizer = TfidfVectorizer().fit_transform([chunk1, chunk2])
+    vectors = vectorizer.toarray()
+    cosine_sim = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
+    return cosine_sim
 
-def highlight_query_in_results(query, result):
-    try:
-        # Case insensitive search and highlight with word boundaries
-        query_regex = re.compile(r'\b' + re.escape(query) + r'\b', re.IGNORECASE)
-        highlighted_result = query_regex.sub(lambda x: f"<span style='background-color: yellow; font-weight: bold;'>{x.group()}</span>", result)
-        return highlighted_result
-    except Exception as e:
-        return result 
-
+# Streamlit app
 def main():
-    st.title("MVP Aerosync")
+    st.title("PDF Chunk Comparison & Audit App")
 
-    # Initialize session state
-    if 'search_performed' not in st.session_state:
-        st.session_state.search_performed = False
-    if 'search_results' not in st.session_state:
-        st.session_state.search_results = []
+    # Initialize session state for buttons
+    if 'similarity' not in st.session_state:
+        st.session_state.similarity = None
+    if 'audit_result' not in st.session_state:
+        st.session_state.audit_result = None
 
-    # Upload dataset
-    st.sidebar.header("Upload Dataset")
-    uploaded_file = st.sidebar.file_uploader("Upload your dataset (PDF or TXT)", type=["pdf", "txt"])
+    # Step 1: Upload PDFs
+    st.sidebar.header("Upload PDFs")
+    uploaded_file1 = st.sidebar.file_uploader("Upload first PDF", type="pdf")
+    uploaded_file2 = st.sidebar.file_uploader("Upload second PDF", type="pdf")
 
-    if uploaded_file is not None:
-        # Load dataset
-        if uploaded_file.type == "text/plain":
-            text_content = uploaded_file.getvalue().decode("utf-8")
-            df = pd.DataFrame({"text": [text_content]})
-        elif uploaded_file.type == "application/pdf":
-            text_chunks = read_pdf(io.BytesIO(uploaded_file.getvalue()))
-            df = pd.DataFrame({"text": text_chunks})
+    if uploaded_file1 and uploaded_file2:
+        # Read and chunk PDFs
+        text_chunks1 = read_pdf(io.BytesIO(uploaded_file1.getvalue()))
+        text_chunks2 = read_pdf(io.BytesIO(uploaded_file2.getvalue()))
 
-        # Display uploaded data
+        df1 = pd.DataFrame({"text": text_chunks1})
+        df2 = pd.DataFrame({"text": text_chunks2})
+
         st.header("Uploaded Data")
-        st.write(f"Number of chunks: {len(df)}")
-        st.write(df.head())
+        st.write("First PDF Chunks:")
+        st.write(df1.head())
+        st.write("Second PDF Chunks:")
+        st.write(df2.head())
 
-        # Language detection
-        detected_lang = detect_language(df['text'].iloc[0])
-        lang_options = ["Arabic", "English"]
-        lang_index = lang_options.index(detected_lang) if detected_lang in lang_options else 0
-        lang = st.sidebar.selectbox("Select Language", lang_options, index=lang_index)
+        # Step 2: Select chunks for comparison
+        st.sidebar.subheader("Select Chunks to Compare")
+        chunk1_idx = st.sidebar.selectbox("Select chunk from first PDF", range(len(text_chunks1)))
+        chunk2_idx = st.sidebar.selectbox("Select chunk from second PDF", range(len(text_chunks2)))
 
-        # Data preprocessing
-        st.sidebar.header("Data Preprocessing")
-        if st.sidebar.checkbox("Clean Text"):
-            df['text'] = df['text'].apply(lambda x: clean_text(x, lang))
-            st.subheader("After Cleaning Text:")
-            st.write(df.head())
- 
+        chunk1 = df1['text'].iloc[chunk1_idx]
+        chunk2 = df2['text'].iloc[chunk2_idx]
 
-        if df['text'].str.strip().astype(bool).any():
-            indexing_method = st.sidebar.selectbox("Select Indexing Method", ["Tf-idf Vectorization", "Inverted Index", "Term Document Matrix"])
+        st.subheader("Selected Chunks for Comparison")
+        st.write("**First PDF Chunk:**")
+        st.write(chunk1)
+        st.write("**Second PDF Chunk:**")
+        st.write(chunk2)
 
-            if indexing_method == "Tf-idf Vectorization":
-                index, vectorizer = create_tfidf_matrix(df['text'])
-            elif indexing_method == "Inverted Index":
-                index = create_inverted_index(df['text'])
-            elif indexing_method == "Term Document Matrix":
-                index, vectorizer = create_term_document_matrix(df['text'])
-            
-            st.header("Search")
-            query = st.text_input("Enter your search query")
-            retrieval_method = st.sidebar.selectbox("Select Retrieval Method", ["Cosine Similarity", "Using Inverted Index"])
+        # Step 3: Calculate similarity
+        if st.button("Compute Similarity"):
+            cleaned_chunk1 = clean_text(chunk1)
+            cleaned_chunk2 = clean_text(chunk2)
+            similarity = calculate_similarity(cleaned_chunk1, cleaned_chunk2)
+            st.session_state.similarity = similarity  # Save to session state
 
-            num_results = st.slider("Select the number of related chunks to return", min_value=1, max_value=10, value=5)
+        # Display similarity if calculated
+        if st.session_state.similarity is not None:
+            st.write(f"Cosine Similarity: {st.session_state.similarity:.4f}")
 
-            if st.button("Search"):
-                if query:
-                    if indexing_method in ["Term Document Matrix", "Tf-idf Vectorization"]:
-                        results = retrieve_cosine_similarity(query, index, df['text'], lang)
-                    elif indexing_method == "Inverted Index":
-                        results = retrieve_using_inverted_index(query, index, df['text'], lang)
-                    
-                    st.session_state.search_results = results
-                    st.session_state.search_performed = True
+        # Step 4: Perform audit using OpenAI GPT
+        if st.button("Perform Audit"):
+            audit_result = perform_audit(chunk1, chunk2)
+            st.session_state.audit_result = audit_result  # Save to session state
 
-            # Display search results and audit buttons
-            if st.session_state.search_performed:
-                st.write("Search Results:")
-                if st.session_state.search_results:
-                    num_results = min(len(st.session_state.search_results), num_results)
-                    for i in range(num_results):        
-                        score, text, chunk_id = st.session_state.search_results[i]
-
-                        highlighted_result = highlight_query_in_results(query, text)
-                        st.write(f"- Chunk ID: {chunk_id}, Score: {score:.4f}")
-                        st.write(highlighted_result, unsafe_allow_html=True)
-                        
-                        # Add unique key to each button
-                        if st.button(f'Audit Chunk {chunk_id}', key=f"audit_button_{chunk_id}"):
-                            audit_result = perform_audit(highlighted_result, query)
-                            st.subheader(f"Audit Results for Chunk {chunk_id}")
-                            st.write(audit_result)
-                        st.write("---")
-                else:
-                    st.write("No matching chunks found.")
-        else:
-            st.error("All documents are empty after preprocessing. Please adjust preprocessing steps or upload a different dataset.")
+        # Display audit result if calculated
+        if st.session_state.audit_result is not None:
+            st.subheader("Audit Result")
+            st.write(st.session_state.audit_result)
 
 if __name__ == "__main__":
     main()
