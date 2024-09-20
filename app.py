@@ -108,7 +108,7 @@ def calculate_similarity(chunk1, chunk2):
 
 # Streamlit app
 def main():
-    st.title("PDF Chunk Comparison & Audit App")
+    st.title("MVP AeroSync")
 
     # Initialize session state for buttons
     if 'similarity' not in st.session_state:
