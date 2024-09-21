@@ -1,23 +1,56 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
+import fitz  # PyMuPDF
 import re
-import string
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import ISRIStemmer
-from langdetect import detect
-from collections import Counter
-import math
-import nltk
-import PyPDF2
-import io
 import openai
 import toml
 
-# Set your OpenAI API key here
+# Function to extract TOC and scan for sections not in TOC
+def extract_toc_and_sections(pdf_path):
+    doc = fitz.open(pdf_path)
+    toc = doc.get_toc()  # Extract the Table of Contents (TOC)
+    sections = {}
+    
+    # Create a dictionary to map TOC entries to text in the PDF
+    for toc_entry in toc:
+        level, title, page = toc_entry
+        page_text = doc.load_page(page - 1).get_text("text")
+        sections[title] = {
+            "level": level,
+            "page": page,
+            "text": page_text
+        }
+    
+    # Function to detect section headers like "ORG 1.1.1", "ORG 2.3.4", etc.
+    def find_section_headers(page_text):
+        pattern = r'\b(ORG \d+(\.\d+){1,5})\b'  # Matches patterns like ORG 1.1, ORG 2.1.1, etc.
+        headers = re.findall(pattern, page_text)
+        return [header[0] for header in headers]
+
+    # Scan each page for section headers not in the TOC
+    for page_num in range(len(doc)):
+        page_text = doc.load_page(page_num).get_text("text")
+        headers = find_section_headers(page_text)
+        
+        for header in headers:
+            # If header is not already in sections, add it
+            if header not in sections:
+                sections[header] = {
+                    "level": header.count('.') + 1,  # Determine level by the number of dots
+                    "page": page_num + 1,
+                    "text": page_text
+                }
+    
+    return sections
+
+# Function to calculate cosine similarity
+def calculate_similarity(chunk1, chunk2):
+    vectorizer = TfidfVectorizer().fit_transform([chunk1, chunk2])
+    vectors = vectorizer.toarray()
+    cosine_sim = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
+    return cosine_sim
+
 
 def perform_audit(iosa_checklist, input_text):
     model_id = 'gpt-4o'  
@@ -76,99 +109,55 @@ def perform_audit(iosa_checklist, input_text):
     )
     
     return response.choices[0].message.content
-
-# Function to read and chunk PDFs
-def read_pdf(file, chunk_size=1000):
-    pdf_reader = PyPDF2.PdfReader(file)
-    chunks = []
-    current_chunk = ""
-    for page in pdf_reader.pages:
-        text = page.extract_text()
-        words = text.split()
-        for word in words:
-            current_chunk += word + " "
-            if len(current_chunk.split()) >= chunk_size:
-                chunks.append(current_chunk.strip())
-                current_chunk = ""
-    if current_chunk:
-        chunks.append(current_chunk.strip())
-    return chunks
-
-# Function to clean text (remove special characters)
-def clean_text(text):
-    text = re.sub(r'[^\w\s]', '', text)
-    return re.sub(r'\s+', ' ', text).strip()
-
-# Function to calculate cosine similarity
-def calculate_similarity(chunk1, chunk2):
-    vectorizer = TfidfVectorizer().fit_transform([chunk1, chunk2])
-    vectors = vectorizer.toarray()
-    cosine_sim = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
-    return cosine_sim
-
 # Streamlit app
 def main():
-    st.title("MVP AeroSync")
-
-    # Initialize session state for buttons
-    if 'similarity' not in st.session_state:
-        st.session_state.similarity = None
-    if 'audit_result' not in st.session_state:
-        st.session_state.audit_result = None
-
-    # Step 1: Upload PDFs
-    st.sidebar.header("Upload PDFs")
-    uploaded_file1 = st.sidebar.file_uploader("Upload first PDF", type="pdf")
-    uploaded_file2 = st.sidebar.file_uploader("Upload second PDF", type="pdf")
-
-    if uploaded_file1 and uploaded_file2:
-        # Read and chunk PDFs
-        text_chunks1 = read_pdf(io.BytesIO(uploaded_file1.getvalue()))
-        text_chunks2 = read_pdf(io.BytesIO(uploaded_file2.getvalue()))
-
-        df1 = pd.DataFrame({"text": text_chunks1})
-        df2 = pd.DataFrame({"text": text_chunks2})
-
-        st.header("Uploaded Data")
-        st.write("First PDF Chunks:")
-        st.write(df1.head())
-        st.write("Second PDF Chunks:")
-        st.write(df2.head())
-
-        # Step 2: Select chunks for comparison
-        st.sidebar.subheader("Select Chunks to Compare")
-        chunk1_idx = st.sidebar.selectbox("Select chunk from first PDF", range(len(text_chunks1)))
-        chunk2_idx = st.sidebar.selectbox("Select chunk from second PDF", range(len(text_chunks2)))
-
-        chunk1 = df1['text'].iloc[chunk1_idx]
-        chunk2 = df2['text'].iloc[chunk2_idx]
-
-        st.subheader("Selected Chunks for Comparison")
-        st.write("**First PDF Chunk:**")
-        st.write(chunk1)
-        st.write("**Second PDF Chunk:**")
-        st.write(chunk2)
-
-        # Step 3: Calculate similarity
-        if st.button("Compute Similarity"):
-            cleaned_chunk1 = clean_text(chunk1)
-            cleaned_chunk2 = clean_text(chunk2)
-            similarity = calculate_similarity(cleaned_chunk1, cleaned_chunk2)
-            st.session_state.similarity = similarity  # Save to session state
-
-        # Display similarity if calculated
-        if st.session_state.similarity is not None:
-            st.write(f"Cosine Similarity: {st.session_state.similarity:.4f}")
-
-        # Step 4: Perform audit using OpenAI GPT
+    st.title("AeroSync")
+    
+    # Upload two PDFs
+    uploaded_file_1 = st.file_uploader("Upload First PDF", type="pdf", key="pdf1")
+    uploaded_file_2 = st.file_uploader("Upload Second PDF", type="pdf", key="pdf2")
+    
+    # Section containers
+    selected_section_1 = None
+    selected_section_2 = None
+    
+    # Process the first PDF
+    if uploaded_file_1:
+        with open("uploaded_pdf_1.pdf", "wb") as f:
+            f.write(uploaded_file_1.getbuffer())
+        sections_1 = extract_toc_and_sections("uploaded_pdf_1.pdf")
+        st.subheader("Sections from First PDF")
+        selected_section_1 = st.selectbox("Select a section from PDF 1", list(sections_1.keys()))
+    
+    # Process the second PDF
+    if uploaded_file_2:
+        with open("uploaded_pdf_2.pdf", "wb") as f:
+            f.write(uploaded_file_2.getbuffer())
+        sections_2 = extract_toc_and_sections("uploaded_pdf_2.pdf")
+        st.subheader("Sections from Second PDF")
+        selected_section_2 = st.selectbox("Select a section from PDF 2", list(sections_2.keys()))
+    
+    # Display selected sections' text
+    if selected_section_1 and selected_section_2:
+        chunk1 = sections_1[selected_section_1]['text']
+        chunk2 = sections_2[selected_section_2]['text']
+        
+        # Show the text before performing the audit
+        st.write(f"**Text from Selected Section in PDF 1 ({selected_section_1}):**")
+        st.text_area("PDF 1 Section Text", chunk1, height=200)
+        
+        st.write(f"**Text from Selected Section in PDF 2 ({selected_section_2}):**")
+        st.text_area("PDF 2 Section Text", chunk2, height=200)
+        
+        # Compute similarity
+        similarity = calculate_similarity(chunk1, chunk2)
+        st.write(f"**Cosine Similarity between the selected sections:** {similarity:.4f}")
+        
+        # Button to perform the audit
         if st.button("Perform Audit"):
             audit_result = perform_audit(chunk1, chunk2)
-            st.session_state.audit_result = audit_result  # Save to session state
-
-        # Display audit result if calculated
-        if st.session_state.audit_result is not None:
-            st.subheader("Audit Result")
-            st.write(st.session_state.audit_result)
+            st.write("**Audit Result:**")
+            st.write(audit_result)
 
 if __name__ == "__main__":
     main()
