@@ -7,5 +7,4 @@ langdetect
 PyPDF2
 openai
 toml
-fitz
-frontend
+PyMuPDF
