@@ -59,10 +59,10 @@ def perform_audit(iosa_checklist, input_text):
     api_key = st.secrets["OPEN_AI_KEY"]
 
     # Create the OpenAI client using the API key from secrets.toml
-    client = openai.OpenAI(api_key,st.secrets["OPEN_AI_KEY"])
+    openai.api_key = api_key
 
     # OpenAI API request
-    response = client.chat.completions.create(
+    response = openai.chat.completions.create(
         model=model_id,
         messages=[
             {
