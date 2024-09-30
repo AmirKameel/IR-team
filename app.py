@@ -240,5 +240,5 @@ def main():
             st.write("*Audit Result:*")
             st.write(audit_result)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
