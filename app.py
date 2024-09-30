@@ -7,7 +7,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Function to extract TOC and scan for sections not in TOC
-def extract_toc_and_sections(pdf_path, expand_pages=4):
+def extract_toc_and_sections(pdf_path, expand_pages=7):
     doc = fitz.open(pdf_path)
     toc = doc.get_toc()  # Extract the Table of Contents (TOC)
     sections = {}
@@ -113,7 +113,7 @@ def extract_section_with_gpt(section_name, chunk_text):
 
 # Streamlit app
 def main():
-    st.title("PDF Table of Contents & Sections Viewer")
+    st.title("AeroSync Manual Parser")
     
     # Upload the PDF
     uploaded_file = st.file_uploader("Upload PDF", type="pdf")
