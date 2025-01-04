@@ -233,16 +233,16 @@ def main():
         with open("uploaded_pdf_1.pdf", "wb") as f:
             f.write(uploaded_file_1.getbuffer())
         sections_1 = extract_toc_and_sections("uploaded_pdf_1.pdf")
-        st.subheader("Sections from First PDF")
-        selected_section_1 = st.selectbox("Select a section from PDF 1", list(sections_1.keys()))
+        st.subheader("Sections from Regulation PDF")
+        selected_section_1 = st.selectbox("Select a section from Regulation", list(sections_1.keys()))
     
     # Process the second PDF
     if uploaded_file_2:
         with open("uploaded_pdf_2.pdf", "wb") as f:
             f.write(uploaded_file_2.getbuffer())
         sections_2 = extract_toc_and_sections("uploaded_pdf_2.pdf")
-        st.subheader("Sections from Second PDF")
-        selected_section_2 = st.selectbox("Select a section from PDF 2", list(sections_2.keys()))
+        st.subheader("Sections from Airline Manual PDF")
+        selected_section_2 = st.selectbox("Select a section from Airline Manual PDF", list(sections_2.keys()))
     
 
     # Modified audit button section
@@ -253,11 +253,11 @@ def main():
         extracted_chunk1 = extract_section_with_gpt(selected_section_1, chunk1)
         extracted_chunk2 = extract_section_with_gpt(selected_section_2, chunk2)
         
-        st.write(f"*Extracted Text from Selected Section in PDF 1 ({selected_section_1}):*")
-        st.text_area("PDF 1 Extracted Section Text", extracted_chunk1, height=200)
+        st.write(f"*Extracted Text from Selected Section in Regulation ({selected_section_1}):*")
+        st.text_area("Regulation Extracted Section Text", extracted_chunk1, height=200)
         
-        st.write(f"*Extracted Text from Selected Section in PDF 2 ({selected_section_2}):*")
-        st.text_area("PDF 2 Extracted Section Text", extracted_chunk2, height=200)
+        st.write(f"*Extracted Text from Selected Section in Airline Manual ({selected_section_2}):*")
+        st.text_area("Airline Manual Extracted Section Text", extracted_chunk2, height=200)
         
         #similarity = calculate_similarity(extracted_chunk1, extracted_chunk2)
         #st.write(f"*Cosine Similarity between the extracted sections:* {similarity:.4f}")
