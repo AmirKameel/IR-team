@@ -221,8 +221,8 @@ def main():
 
     
     # Upload two PDFs
-    uploaded_file_1 = st.file_uploader("Upload First PDF", type="pdf", key="pdf1")
-    uploaded_file_2 = st.file_uploader("Upload Second PDF", type="pdf", key="pdf2")
+    uploaded_file_1 = st.file_uploader("Upload Regulation PDF", type="pdf", key="pdf1")
+    uploaded_file_2 = st.file_uploader("Upload Airline Manual PDF", type="pdf", key="pdf2")
     
     # Section containers
     selected_section_1 = None
